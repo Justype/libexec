@@ -22,12 +22,12 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build image
         run: docker build -f docker/build.Dockerfile -t libexec-build .
       - name: Build and pack
         run: docker run --rm -v "$PWD:/work" -w /work libexec-build bash -c 'scripts/build.sh && scripts/pack.sh'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bundle-${{ matrix.arch }}
           path: work/out/libexec-*.tar.gz*
@@ -44,8 +44,8 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: bundle-${{ matrix.arch }}
           path: out
@@ -67,8 +67,8 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: bundle-*
           merge-multiple: true
@@ -77,7 +77,7 @@ jobs:
         run: |
           . ./versions.env
           case "${GITHUB_REF_NAME#v}" in "$APPTAINER_VERSION"|"$APPTAINER_VERSION"-*) ;; *) echo "tag $GITHUB_REF_NAME does not match Apptainer $APPTAINER_VERSION"; exit 1;; esac
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: out/libexec-*.tar.gz
       - name: Publish

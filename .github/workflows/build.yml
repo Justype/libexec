@@ -1,0 +1,82 @@
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f docker/build.Dockerfile -t libexec-build .
+      - name: Build and pack
+        run: docker run --rm -v "$PWD:/work" -w /work libexec-build bash -c 'scripts/build.sh && scripts/pack.sh'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.arch }}
+          path: work/out/libexec-*.tar.gz*
+
+  smoke:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: bundle-${{ matrix.arch }}
+          path: out
+      - name: Allow unprivileged user namespaces and FUSE
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update && sudo apt-get install -y fuse3
+      - name: Unpack and test
+        run: |
+          mkdir tree && tar -xzf out/libexec-*.tar.gz -C tree
+          scripts/smoke.sh tree
+
+  release:
+    needs: smoke
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bundle-*
+          merge-multiple: true
+          path: out
+      - name: The tag starts with the Apptainer version
+        run: |
+          . ./versions.env
+          case "${GITHUB_REF_NAME#v}" in "$APPTAINER_VERSION"|"$APPTAINER_VERSION"-*) ;; *) echo "tag $GITHUB_REF_NAME does not match Apptainer $APPTAINER_VERSION"; exit 1;; esac
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: out/libexec-*.tar.gz
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/libexec-* --title "$GITHUB_REF_NAME" --notes "Apptainer bundle for condatainer."

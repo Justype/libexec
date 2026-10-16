@@ -73,6 +73,7 @@ echo "== binaries";    check_binaries "$TREE"
 echo "== floors";      check_floors "$TREE"
 echo "== runtime";     check_runtime "$TREE"
 echo "== relocation"
-moved=$(mktemp -d)/moved; cp -R -P "$TREE" "$moved"
+moved_root=$(mktemp -d); trap 'rm -rf "$moved_root"' EXIT
+moved=$moved_root/moved; cp -R -P "$TREE" "$moved"
 check_runtime "$moved"
 echo "smoke tests passed"

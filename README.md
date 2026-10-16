@@ -40,7 +40,7 @@ mkdir tree && tar -xzf work/out/libexec-*.tar.gz -C tree
 scripts/smoke.sh tree
 ```
 
-`smoke.sh` starts every binary, checks the version floors, tests `--fakeroot`, checks that a file overwritten shorter keeps the new size, and repeats the tests on a copy at another path.
+`smoke.sh` starts every binary, checks the version floors, and checks `--fakeroot` in the root-mapped namespace alone. It builds an AlmaLinux 8 image whose `%post` runs `chown`, which needs the bundled fakeroot to run in the image. It checks that a file overwritten shorter keeps the new size, and repeats the tests on a copy at another path.
 
 ## Updating the tools
 

@@ -81,6 +81,8 @@ ln -s ../../../bin/fuse2fs "$PREFIX/lib/apptainer/bin/fuse2fs"
          -e 's|^FAKEROOT_BINDIR=/.*|FAKEROOT_PREFIX=${FAKEROOT_BINDIR%/*}|' \
          -e "s|^PATHS=$PREFIX/lib/apptainer/lib:|PATHS=\${FAKEROOT_PREFIX}/lib:|" \
          "$PREFIX/lib/apptainer/bin/fakeroot-sysv"
+  # Apptainer runs the launcher inside the container, where getopt may be missing or built for a newer libc, so it parses its options in plain sh.
+  python3 "$ROOT/scripts/patch-fakeroot.py" "$PREFIX/lib/apptainer/bin/fakeroot-sysv" "$ROOT/scripts/fakeroot-args.sh"
   ( cd "$PREFIX/lib/apptainer/lib" && ln -sf "$(ls libfakeroot-*.so | head -1)" libfakeroot-sysv.so )
   rm -rf "$PREFIX/lib/apptainer/share" "$PREFIX"/lib/apptainer/lib/*.la )
 

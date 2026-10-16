@@ -58,6 +58,7 @@ lib/apptainer/bin/    starter, squashfuse_ll, fuse-overlayfs, mksquashfs, unsqua
 etc/apptainer/        configuration
 var/apptainer/mnt/session/   empty; Apptainer mounts onto it
 MANIFEST.json         every file with its sha256
+LICENSES/             license files per component, and SOURCES.txt with the source tarballs and their sha256
 ```
 
-The archive has about 60 files. It can be unpacked at any path.
+The archive can be unpacked at any path.

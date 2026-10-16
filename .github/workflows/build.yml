@@ -4,6 +4,10 @@ on:
   push:
     tags: ['v*']
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - .github/dependabot.yml
+      - .github/workflows/update.yml
   workflow_dispatch:
 
 jobs:

@@ -22,6 +22,31 @@ find "$TREE" -type f \( -perm -u+x -o -name '*.so*' \) | while read -r f; do
   patchelf --set-rpath "\$ORIGIN/$rel" "$f" 2>/dev/null || true
 done
 
+# Each component's license files, and where its source came from. A library copied from the image
+# brings the license directory of the package that owns it.
+LIC=$TREE/LICENSES; mkdir -p "$LIC"
+copy_licenses() {   # copy_licenses <name> <source dir>
+  mkdir -p "$LIC/$1"
+  find "$2" -maxdepth 1 -type f \( -iname 'COPYING*' -o -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'NOTICE*' \) -exec cp {} "$LIC/$1/" \;
+}
+for dir in "$SRC"/apptainer-* "$SRC"/fuse-* "$SRC"/fakeroot-* "$SRC"/e2fsprogs-* "$SRC/apptainer-$APPTAINER_VERSION"/{squashfs-tools,squashfuse,fuse-overlayfs}-*/; do
+  if [ -d "$dir" ]; then copy_licenses "$(basename "$dir")" "$dir"; fi
+done
+for lib in "$TREE"/lib/*.so*; do
+  if [ ! -f "$lib" ] || [ -L "$lib" ]; then continue; fi
+  pkg=$(rpm -qf "/usr/lib64/$(basename "$lib")" 2>/dev/null) || continue
+  mkdir -p "$LIC/$pkg"; cp -r /usr/share/licenses/"${pkg%%-[0-9]*}"/. "$LIC/$pkg/" 2>/dev/null || true
+done
+{
+  echo "Sources of the components in this bundle. Each was built from the tarball below."
+  echo "apptainer-$APPTAINER_VERSION  https://github.com/apptainer/apptainer/releases/download/v$APPTAINER_VERSION/  sha256 $APPTAINER_SHA256"
+  echo "libfuse-$LIBFUSE_VERSION  https://github.com/libfuse/libfuse/releases/download/fuse-$LIBFUSE_VERSION/  sha256 $LIBFUSE_SHA256"
+  echo "fakeroot-$FAKEROOT_VERSION  http://deb.debian.org/debian/pool/main/f/fakeroot/  sha256 $FAKEROOT_SHA256"
+  for f in "$DL"/deps/*.tar.gz "$DL"/e2fsprogs-*.tar.xz; do
+    if [ -f "$f" ]; then echo "$(basename "$f")  sha256 $(sha256sum "$f" | cut -d' ' -f1)"; fi
+  done
+} > "$LIC/SOURCES.txt"
+
 # The manifest lists every file, so an update can replace exactly what the previous bundle installed.
 python3 - "$TREE" "$APPTAINER_VERSION" <<'PY'
 import hashlib, json, os, sys

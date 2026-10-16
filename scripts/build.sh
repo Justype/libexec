@@ -41,7 +41,9 @@ export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" CPPFLAGS="-I$PREFIX/include" LDFL
 
 # --- Apptainer (non-setuid, tool directory under $PREFIX/lib/apptainer)
 ( cd "$SRC/apptainer-$APPTAINER_VERSION"
-  ./mconfig -p "$PREFIX" --libexecdir="$PREFIX/lib" --without-network
+  # --without-suid is explicit because mconfig otherwise tests user namespaces on the build host,
+  # and a container on a CI runner does not have them.
+  ./mconfig -p "$PREFIX" --libexecdir="$PREFIX/lib" --without-network --without-suid
   make -C builddir -j"$JOBS"
   make -C builddir install
 

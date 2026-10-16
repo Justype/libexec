@@ -20,6 +20,8 @@ tar -xzf "$DL/fakeroot_$FAKEROOT_VERSION.orig.tar.gz" -C "$SRC"
 [ -x "$WORK/go/bin/go" ] || tar -xzf "$DL/go$GO_VERSION.linux-$GOARCH.tar.gz" -C "$WORK"
 # GOROOT and GOTOOLCHAIN are set so a Go the environment already points at cannot be mixed with this one.
 export GOROOT="$WORK/go" GOTOOLCHAIN=local PATH="$WORK/go/bin:$PATH"
+# The sources sit inside the checkout when the build runs in CI, and git refuses its owner there. No version stamp is wanted.
+export GOFLAGS="${GOFLAGS:-} -buildvcs=false"
 
 want_go=$(sed -n 's/^go //p' "$SRC/apptainer-$APPTAINER_VERSION/go.mod" | head -1)
 echo "Apptainer $APPTAINER_VERSION wants Go $want_go; building with $(go version)"

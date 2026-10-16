@@ -3,12 +3,12 @@
 # The Go version follows the new Apptainer release's go.mod. The helper tools follow its spec.
 #   scripts/update-versions.sh                  rewrites versions.env
 #   OUT_ENV=/tmp/new.env scripts/update-versions.sh   writes the result elsewhere
-# When anything changed, the pull request text is written to $PR_BODY (default work/pr-body.md).
+# When anything changed, the release notes are written to $NOTES (default work/notes.md).
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 . "$ROOT/versions.env"
 OUT_ENV=${OUT_ENV:-$ROOT/versions.env}
-PR_BODY=${PR_BODY:-$ROOT/work/pr-body.md}
+NOTES=${NOTES:-$ROOT/work/notes.md}
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
 api() { curl -fsSL ${GH_TOKEN:+-H "Authorization: Bearer $GH_TOKEN"} "$@"; }
@@ -69,7 +69,7 @@ spec=$(curl -fsSL "https://raw.githubusercontent.com/apptainer/apptainer/v$new_a
 pin() { sed -n "s/^%global $1_version //p" <<<"$spec" | head -1; }
 e2fs=$(pin e2fsprogs)
 
-mkdir -p "$(dirname "$PR_BODY")"
+mkdir -p "$(dirname "$NOTES")"
 {
   echo "Moves \`versions.env\` to the newest releases."
   echo
@@ -86,6 +86,6 @@ mkdir -p "$(dirname "$PR_BODY")"
     echo "**e2fsprogs $e2fs is older than 1.47.3, so its \`fuse2fs\` loses \`O_TRUNC\` on libfuse 3. The smoke test fails until Apptainer pins a newer one.**"
   fi
   echo
-  echo "Checksums were computed from the downloaded sources. The \`build\` workflow builds and tests the result. After merging, tag the Apptainer version to publish."
-} > "$PR_BODY"
+  echo "Checksums were computed from the downloaded sources."
+} > "$NOTES"
 echo "updated: Apptainer $APPTAINER_VERSION -> $new_apptainer, libfuse $LIBFUSE_VERSION -> $new_libfuse, fakeroot $FAKEROOT_VERSION -> $new_fakeroot, Go $GO_VERSION -> $new_go"

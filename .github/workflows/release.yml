@@ -1,0 +1,59 @@
+name: release
+
+# Publishes the bundles of the current run as the release of the Apptainer version in versions.env.
+# Nothing happens when that release already holds the archive of every architecture.
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        description: Commit the bundles were built from
+        type: string
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha }}
+      - name: Is this version already published
+        id: rel
+        run: |
+          . ./versions.env
+          tag="v$APPTAINER_VERSION"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          have=$(gh release view "$tag" --json assets -q '.assets[].name' 2>/dev/null || true)
+          new=false
+          for arch in x86_64 aarch64; do
+            grep -qx "libexec-$APPTAINER_VERSION-linux-$arch.tar.gz" <<<"$have" || new=true
+          done
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+      - if: steps.rel.outputs.new == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bundle-*
+          merge-multiple: true
+          path: out
+      - if: steps.rel.outputs.new == 'true'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: out/libexec-*.tar.gz
+      - name: Publish
+        if: steps.rel.outputs.new == 'true'
+        run: |
+          tag='${{ steps.rel.outputs.tag }}'
+          notes=$(git log -1 --format=%b)
+          [ -n "$notes" ] || notes="Apptainer bundle for condatainer."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" out/libexec-* --clobber
+          else
+            gh release create "$tag" out/libexec-* --target '${{ inputs.sha }}' --title "$tag" --notes "$notes"
+          fi

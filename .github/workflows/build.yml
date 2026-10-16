@@ -2,13 +2,20 @@ name: build
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: [versions.env]
   pull_request:
     paths-ignore:
       - '**.md'
       - .github/dependabot.yml
       - .github/workflows/update.yml
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to build
+        type: string
+        default: ''
 
 jobs:
   build:
@@ -23,6 +30,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - name: Build image
         run: docker build -f docker/build.Dockerfile -t libexec-build .
       - name: Build and pack
@@ -45,6 +54,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/download-artifact@v8
         with:
           name: bundle-${{ matrix.arch }}
@@ -58,29 +69,14 @@ jobs:
           mkdir tree && tar -xzf out/libexec-*.tar.gz -C tree
           scripts/smoke.sh tree
 
+  # Runs for a push to main and a manual run on main. The update workflow publishes by itself.
   release:
     needs: smoke
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-24.04
+    if: github.ref == 'refs/heads/main' && inputs.ref == ''
     permissions:
       contents: write
       id-token: write
       attestations: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: bundle-*
-          merge-multiple: true
-          path: out
-      - name: The tag starts with the Apptainer version
-        run: |
-          . ./versions.env
-          case "${GITHUB_REF_NAME#v}" in "$APPTAINER_VERSION"|"$APPTAINER_VERSION"-*) ;; *) echo "tag $GITHUB_REF_NAME does not match Apptainer $APPTAINER_VERSION"; exit 1;; esac
-      - uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: out/libexec-*.tar.gz
-      - name: Publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" out/libexec-* --title "$GITHUB_REF_NAME" --notes "Apptainer bundle for condatainer."
+    uses: ./.github/workflows/release.yml
+    with:
+      sha: ${{ github.sha }}

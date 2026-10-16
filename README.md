@@ -20,7 +20,7 @@ Micromamba is not part of the bundle.
 
 ## Versions
 
-- A tag is the Apptainer version, for example `v1.5.4`. A rebuild of the same version gets a suffix: `v1.5.4-2`.
+- A release is the Apptainer version, for example `v1.5.4`. The release workflow creates the tag.
 - `versions.env` holds the Apptainer version and what Apptainer does not pin: libfuse, fakeroot and Go.
 - The other tool versions are read from `dist/rpm/apptainer.spec.in` of the Apptainer release being built.
 
@@ -44,10 +44,17 @@ scripts/smoke.sh tree
 
 ## Updating the tools
 
-`.github/workflows/update.yml` runs weekly. `scripts/update-versions.sh` finds the newest Apptainer, libfuse and fakeroot, and the Go version the new Apptainer needs. It rewrites `versions.env` with the checksums. If anything changed, the workflow opens a pull request that lists the old and new versions and the tools the new Apptainer pins. It warns when the pinned e2fsprogs is older than 1.47.3.
+`.github/workflows/update.yml` runs weekly and needs no one to watch it.
 
-- A pull request opened with the default token does not start the `build` workflow. Add the secret `UPDATE_TOKEN`, a token with contents and pull requests write access, so the build and tests run on it.
-- Merging does not publish. Tag the Apptainer version to release.
+1. `scripts/update-versions.sh` finds the newest Apptainer, libfuse and fakeroot, and the Go version the new Apptainer needs. It rewrites `versions.env` with the checksums.
+2. If the Apptainer version is the same, the run ends. A newer libfuse or fakeroot alone is not released.
+3. Otherwise it commits to a temporary `update/...` branch and builds and smoke-tests that commit on `x86_64` and `aarch64`.
+4. When both pass, it fast-forwards `main` to that commit and publishes `v<version>` with both archives. The commit message, with the old and new versions and the tools the new Apptainer pins, is the release text.
+5. The temporary branch is always deleted. A failed build leaves `main` unchanged, and GitHub reports the failed run. The next run retries.
+
+The smoke test fails when the pinned e2fsprogs is older than 1.47.3.
+
+`.github/workflows/release.yml` does the publishing. It adds the archives to the release when it exists and creates it otherwise. A manual run of `build` on `main` publishes the current version the same way.
 
 ## Archive layout
 
